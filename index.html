@@ -1,0 +1,68 @@
+<!doctype html>
+<html lang="es">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
+<meta name="referrer" content="no-referrer">
+<meta name="robots" content="noindex,nofollow,noarchive">
+<meta name="theme-color" content="#145d60">
+<title>Europa en familia</title>
+<style>
+*{box-sizing:border-box}body{margin:0;min-height:100dvh;padding:24px 18px;display:grid;place-items:center;background:#f6f5ef;color:#203b42;font:16px/1.6 system-ui,-apple-system,sans-serif}main{width:100%;max-width:430px;padding:26px 22px;border:1px solid #dce4df;border-radius:22px;background:#fff}h1{font-size:26px;line-height:1.2;margin:0 0 14px}p{color:#53676a}label{display:block;font-weight:650;margin-bottom:8px}input,button{font:inherit;width:100%;min-height:50px;border-radius:10px;padding:11px}input{border:1px solid #b1c5ba;min-width:0}button{border:0;background:#145d60;color:#fff;margin-top:12px;font-weight:650;cursor:pointer}small{color:#53676a;display:block;margin-top:14px}[hidden]{display:none!important}#error{color:#a43131;overflow-wrap:anywhere}
+</style>
+</head>
+<body>
+<main>
+<h1>Europa en familia</h1>
+<p id="status" role="status">Abriendo el itinerario…</p>
+<form id="unlock" hidden>
+<label for="access">Enlace de acceso o clave</label>
+<input id="access" type="password" autocomplete="off" autocapitalize="none" spellcheck="false" required>
+<button type="submit">Abrir itinerario</button>
+</form>
+<p id="error" role="alert" hidden></p>
+<small>El itinerario está cifrado. Abre el enlace completo que recibiste para verlo. Tus marcas se guardan en este navegador.</small>
+</main>
+<script>
+(()=>{
+ const KEY='eurotrip.itinerary.access.v1';
+ const decode=value=>Uint8Array.from(atob(value.replace(/-/g,'+').replace(/_/g,'/')),c=>c.charCodeAt(0));
+ const extract=value=>{try{return new URL(value).hash?new URLSearchParams(new URL(value).hash.slice(1)).get('acceso'):value;}catch{return value;}};
+ const readSaved=()=>{try{return localStorage.getItem(KEY);}catch{return null;}};
+ let busy=false;
+ async function open(key){
+  if(busy)return;busy=true;
+  document.getElementById('error').hidden=true;
+  document.getElementById('status').textContent='Abriendo el itinerario…';
+  try{
+   if(!/^[A-Za-z0-9_-]{43}$/.test(key||''))throw Error('Usa el enlace completo o una clave válida.');
+   if(!crypto.subtle)throw Error('Abre este sitio con HTTPS en Safari o Chrome.');
+   const response=await fetch('./itinerary.enc.json',{cache:'no-store'});
+   if(!response.ok)throw Error('No se pudo cargar el itinerario. Vuelve a intentarlo con conexión.');
+   const envelope=await response.json();
+   if(envelope.version!==1)throw Error('Esta versión del itinerario no es compatible.');
+   const cryptokey=await crypto.subtle.importKey('raw',decode(key),'AES-GCM',false,['decrypt']);
+   let decrypted;
+   try{decrypted=await crypto.subtle.decrypt({name:'AES-GCM',iv:decode(envelope.iv),additionalData:new TextEncoder().encode('eurotrip-itinerario:v1')},cryptokey,decode(envelope.ciphertext));}
+   catch{throw Error('La clave no corresponde a este itinerario. Revisa el enlace completo.');}
+   const payload=JSON.parse(new TextDecoder().decode(decrypted));
+   const pdfURL=URL.createObjectURL(new Blob([decode(payload.pdf)],{type:'application/pdf'}));
+   let html=payload.html.replace('href="Itinerario_familiar_Europa_2026.pdf"',`href="${pdfURL}" download="Itinerario_familiar_Europa_2026.pdf"`);
+   html=html.replace('<head>','<head><meta name="referrer" content="no-referrer"><meta name="robots" content="noindex,nofollow,noarchive">');
+   try{localStorage.setItem(KEY,key);}catch{}
+   if('serviceWorker' in navigator){try{await navigator.serviceWorker.register('./sw.js',{scope:'./'});}catch{}}
+   document.open();document.write(html);document.close();
+  }catch(error){
+   document.getElementById('status').textContent='Abre tu itinerario familiar.';
+   document.getElementById('unlock').hidden=false;
+   document.getElementById('error').textContent=error.message;
+   document.getElementById('error').hidden=false;
+  }finally{busy=false;}
+ }
+ document.getElementById('unlock').addEventListener('submit',event=>{event.preventDefault();open(extract(document.getElementById('access').value.trim()));});
+ const key=new URLSearchParams(location.hash.slice(1)).get('acceso')||readSaved();
+ if(key)open(key);else{document.getElementById('status').textContent='Abre el enlace completo que recibiste o pega tu clave.';document.getElementById('unlock').hidden=false;}
+})();
+</script>
+</body>
+</html>
