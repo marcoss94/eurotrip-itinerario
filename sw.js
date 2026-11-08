@@ -1,4 +1,4 @@
-const CACHE='eurotrip-encrypted-de38ee00a830d91e';
+const CACHE='eurotrip-encrypted-42fe702261434cf8';
 const FILES=['./','./index.html','./itinerary.enc.json'];
 self.addEventListener('install',event=>event.waitUntil(caches.open(CACHE).then(cache=>cache.addAll(FILES)).then(()=>self.skipWaiting())));
 self.addEventListener('activate',event=>event.waitUntil(caches.keys().then(keys=>Promise.all(keys.filter(key=>key.startsWith('eurotrip-encrypted-')&&key!==CACHE).map(key=>caches.delete(key)))).then(()=>self.clients.claim())));

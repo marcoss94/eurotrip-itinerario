@@ -47,9 +47,10 @@
    catch{throw Error('La clave no corresponde a este itinerario. Revisa el enlace completo.');}
    const payload=JSON.parse(new TextDecoder().decode(decrypted));
    const pdfURL=URL.createObjectURL(new Blob([decode(payload.pdf)],{type:'application/pdf'}));
-   let html=payload.html.replace('href="Itinerario_familiar_Europa_2026.pdf"',`href="${pdfURL}" download="Itinerario_familiar_Europa_2026.pdf"`);
+   let html=payload.html.replaceAll('href="Itinerario_familiar_Europa_2026.pdf"',`href="${pdfURL}" download="Itinerario_familiar_Europa_2026.pdf"`);
    html=html.replace('<head>','<head><meta name="referrer" content="no-referrer"><meta name="robots" content="noindex,nofollow,noarchive">');
    try{localStorage.setItem(KEY,key);}catch{}
+   history.replaceState(null,'','#acceso='+key);
    if('serviceWorker' in navigator){try{await navigator.serviceWorker.register('./sw.js',{scope:'./'});}catch{}}
    document.open();document.write(html);document.close();
   }catch(error){
@@ -60,6 +61,7 @@
   }finally{busy=false;}
  }
  document.getElementById('unlock').addEventListener('submit',event=>{event.preventDefault();open(extract(document.getElementById('access').value.trim()));});
+ window.addEventListener('hashchange',()=>{const key=new URLSearchParams(location.hash.slice(1)).get('acceso');if(key)open(key);});
  const key=new URLSearchParams(location.hash.slice(1)).get('acceso')||readSaved();
  if(key)open(key);else{document.getElementById('status').textContent='Abre el enlace completo que recibiste o pega tu clave.';document.getElementById('unlock').hidden=false;}
 })();
